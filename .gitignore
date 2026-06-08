@@ -4,3 +4,22 @@ dist
 .env
 .env.local
 *.zip
+
+# TypeScript build outputs
+**/*.js
+**/*.d.ts
+**/*.js.map
+**/*.tsbuildinfo
+!*.config.js
+!*.config.mjs
+
+# Generated files
+packages/shared/src/**/*.js
+packages/shared/src/**/*.d.ts
+apps/web/next-env.d.ts
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
