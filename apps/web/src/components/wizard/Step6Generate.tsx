@@ -56,6 +56,7 @@ export function Step6Generate({ config }: Props) {
   const [preview, setPreview] = useState<{ path: string }[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [localConfig, setLocalConfig] = useState(config);
 
   const fetchPreview = async () => {
     setLoading(true);

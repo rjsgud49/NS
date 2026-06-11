@@ -14,5 +14,7 @@ export const defaultConfig: ProjectConfig = {
     cors: true,
     rateLimit: false,
   },
+  frontend: 'react',
+  uiFramework: 'tailwind',
   entities: [],
 };

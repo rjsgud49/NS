@@ -9,6 +9,9 @@ export type ArchitectureType =
   | 'ddd'
   | 'microservices';
 
+export type FrontendType = 'react' | 'vue' | 'none';
+export type UIFrameworkType = 'shadcn' | 'tailwind' | 'mui' | 'bootstrap';
+
 export interface ProjectConfig {
   name: string;
   description: string;
@@ -25,6 +28,9 @@ export interface ProjectConfig {
     cors: boolean;
     rateLimit: boolean;
   };
+
+  frontend: FrontendType;
+  uiFramework: UIFrameworkType;
 
   entities: EntityConfig[];
 }
