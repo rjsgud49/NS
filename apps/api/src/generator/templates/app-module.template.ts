@@ -10,6 +10,7 @@ function toPascal(str: string) {
 export function renderAppModule(config: ProjectConfig): string {
   const imports: string[] = [];
   const moduleImports: string[] = [];
+  const providers: string[] = [];
 
   // ConfigModule — always included
   imports.push(`import { ConfigModule } from '@nestjs/config';`);
@@ -20,8 +21,10 @@ export function renderAppModule(config: ProjectConfig): string {
   );
 
   if (config.features.rateLimit) {
-    imports.push(`import { ThrottlerModule } from '@nestjs/throttler';`);
+    imports.push(`import { APP_GUARD } from '@nestjs/core';`);
+    imports.push(`import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';`);
     moduleImports.push(`ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }])`);
+    providers.push(`{ provide: APP_GUARD, useClass: ThrottlerGuard }`);
   }
 
   if (config.orm === 'typeorm') {
@@ -47,13 +50,17 @@ export function renderAppModule(config: ProjectConfig): string {
     moduleImports.push(`${pascal}Module`);
   }
 
+  const providerBlock = providers.length
+    ? `\n  providers: [\n    ${providers.join(',\n    ')},\n  ],`
+    : '';
+
   return `import { Module } from '@nestjs/common';
 ${imports.join('\n')}
 
 @Module({
   imports: [
     ${moduleImports.join(',\n    ')},
-  ],
+  ],${providerBlock}
 })
 export class AppModule {}
 `;
