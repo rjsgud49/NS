@@ -5,6 +5,7 @@ export function renderPackageJson(config: ProjectConfig): string {
     '@nestjs/common': '^10.3.10',
     '@nestjs/config': '^3.2.3',
     '@nestjs/core': '^10.3.10',
+    '@nestjs/mapped-types': '^2.0.5',
     '@nestjs/platform-express': '^10.3.10',
     'joi': '^17.13.1',
     'reflect-metadata': '^0.2.2',
