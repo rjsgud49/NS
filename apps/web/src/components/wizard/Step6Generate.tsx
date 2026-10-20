@@ -2,35 +2,10 @@
 
 import { useState } from 'react';
 import { ProjectConfig } from '@ns/shared';
+import { apiBase, connectionErrorMessage, errorMessage } from '@/lib/api';
+import { buildTree, FileNode } from '@/lib/file-tree';
 
 interface Props { config: ProjectConfig; }
-
-interface FileNode {
-  name: string;
-  path: string;
-  children?: FileNode[];
-}
-
-function buildTree(files: { path: string }[]): FileNode[] {
-  const root: FileNode[] = [];
-  for (const file of files) {
-    const parts = file.path.split('/');
-    let nodes = root;
-    for (let i = 0; i < parts.length; i++) {
-      const existing = nodes.find((n) => n.name === parts[i]);
-      if (i === parts.length - 1) {
-        nodes.push({ name: parts[i], path: file.path });
-      } else if (existing) {
-        nodes = existing.children!;
-      } else {
-        const dir: FileNode = { name: parts[i], path: parts.slice(0, i + 1).join('/'), children: [] };
-        nodes.push(dir);
-        nodes = dir.children!;
-      }
-    }
-  }
-  return root;
-}
 
 function TreeNode({ node, depth = 0 }: { node: FileNode; depth?: number }) {
   const [open, setOpen] = useState(true);
@@ -56,18 +31,28 @@ export function Step6Generate({ config }: Props) {
   const [preview, setPreview] = useState<{ path: string }[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
-  const [localConfig, setLocalConfig] = useState(config);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchPreview = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await fetch('http://localhost:4000/api/generate/preview', {
+      const res = await fetch(`${apiBase()}/api/generate/preview`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ config }),
       });
-      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(await errorMessage(res, '파일 구조를 불러오지 못했습니다.'));
+      }
+      const data = await res.json() as { files?: { path: string }[] };
+      if (!Array.isArray(data.files)) {
+        throw new Error('미리보기 응답이 올바르지 않습니다.');
+      }
       setPreview(data.files);
+    } catch (caught) {
+      setPreview(null);
+      setError(connectionErrorMessage(caught, '파일 구조를 불러오지 못했습니다.'));
     } finally {
       setLoading(false);
     }
@@ -75,12 +60,16 @@ export function Step6Generate({ config }: Props) {
 
   const download = async () => {
     setDownloading(true);
+    setError(null);
     try {
-      const res = await fetch('http://localhost:4000/api/generate/download', {
+      const res = await fetch(`${apiBase()}/api/generate/download`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ config }),
       });
+      if (!res.ok) {
+        throw new Error(await errorMessage(res, 'ZIP을 만들지 못했습니다.'));
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -88,6 +77,8 @@ export function Step6Generate({ config }: Props) {
       a.download = `${config.name}.zip`;
       a.click();
       URL.revokeObjectURL(url);
+    } catch (caught) {
+      setError(connectionErrorMessage(caught, 'ZIP을 만들지 못했습니다.'));
     } finally {
       setDownloading(false);
     }
@@ -142,6 +133,12 @@ export function Step6Generate({ config }: Props) {
           {downloading ? '생성 중...' : '⬇ ZIP 다운로드'}
         </button>
       </div>
+
+      {error && (
+        <p role="alert" className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg px-3 py-2 whitespace-pre-wrap">
+          {error}
+        </p>
+      )}
 
       {/* File tree preview */}
       {tree && (
