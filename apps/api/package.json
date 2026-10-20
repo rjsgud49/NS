@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
-    "start": "node dist/main"
+    "start": "node dist/main",
+    "test": "node --import tsx --test \"src/**/*.test.ts\""
   },
   "dependencies": {
     "@nestjs/common": "^10.3.10",
@@ -21,6 +22,7 @@
     "@types/express": "^4.17.21",
     "@types/node": "^20.14.2",
     "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.23.15",
     "typescript": "^5.4.5"
   }
 }
