@@ -27,6 +27,25 @@ function fieldToColumnType(type: string): string {
   return map[type] ?? 'varchar';
 }
 
+function quotedList(relations: RelationConfig[]): string {
+  return relations.map((relation) => JSON.stringify(relation.fieldName)).join(', ');
+}
+
+/** TypeORM find/findOne options fragment, without the surrounding braces. */
+function typeOrmFindRelations(relations: RelationConfig[]): string {
+  if (!relations.length) return '';
+  return `relations: [${quotedList(relations)}]`;
+}
+
+/** Prisma findMany/findUnique options fragment, without the surrounding braces. */
+function prismaInclude(relations: RelationConfig[]): string {
+  if (!relations.length) return '';
+  const fields = relations
+    .map((relation) => `${JSON.stringify(relation.fieldName)}: true`)
+    .join(', ');
+  return `include: { ${fields} }`;
+}
+
 // ── entity ───────────────────────────────────────────────────────────────────
 export function renderEntity(entity: EntityConfig, config: ProjectConfig): string {
   const pascal = toPascal(entity.name);
@@ -172,9 +191,7 @@ export function renderService(entity: EntityConfig, config: ProjectConfig): stri
   const relations = entity.relations ?? [];
 
   if (config.orm === 'typeorm') {
-    const relationsOption = relations.length
-      ? `{ relations: [${relations.map((r) => `'${r.fieldName}'`).join(', ')}] }`
-      : '';
+    const relationsOption = typeOrmFindRelations(relations);
 
     return `import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -195,11 +212,11 @@ export class ${pascal}Service {
   }
 
   findAll() {
-    return this.repo.find(${relationsOption});
+    return this.repo.find(${relationsOption ? `{ ${relationsOption} }` : ''});
   }
 
   async findOne(id: number) {
-    const item = await this.repo.findOne({ where: { id }${relationsOption ? ', ' + relationsOption : ''} });
+    const item = await this.repo.findOne({ where: { id }${relationsOption ? `, ${relationsOption}` : ''} });
     if (!item) throw new NotFoundException(\`${pascal} #\${id} not found\`);
     return item;
   }
@@ -218,9 +235,7 @@ export class ${pascal}Service {
 `;
   }
 
-  const relationsInclude = relations.length
-    ? `{ include: { ${relations.map((r) => `${r.fieldName}: true`).join(', ')} } }`
-    : '';
+  const relationsInclude = prismaInclude(relations);
 
   return `import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -236,11 +251,11 @@ export class ${pascal}Service {
   }
 
   findAll() {
-    return this.prisma.${camel}.findMany(${relationsInclude});
+    return this.prisma.${camel}.findMany(${relationsInclude ? `{ ${relationsInclude} }` : ''});
   }
 
   async findOne(id: number) {
-    const item = await this.prisma.${camel}.findUnique({ where: { id }${relationsInclude ? ', ' + relationsInclude : ''} });
+    const item = await this.prisma.${camel}.findUnique({ where: { id }${relationsInclude ? `, ${relationsInclude}` : ''} });
     if (!item) throw new NotFoundException(\`${pascal} #\${id} not found\`);
     return item;
   }
