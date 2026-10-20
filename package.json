@@ -6,7 +6,7 @@
     "dev": "pnpm --filter @ns/shared build && pnpm --parallel --filter !@ns/shared -r dev",
     "build": "pnpm -r build",
     "test": "pnpm --filter @ns/shared build && pnpm -r --if-present test",
-    "lint": "pnpm -r lint"
+    "lint": "pnpm -r --if-present lint"
   },
   "engines": {
     "node": ">=20",
