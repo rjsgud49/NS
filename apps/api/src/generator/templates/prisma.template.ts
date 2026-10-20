@@ -8,6 +8,17 @@ function toCamel(str: string) {
   return str.charAt(0).toLowerCase() + str.slice(1);
 }
 
+function idLine(config: ProjectConfig): string {
+  if (config.database === 'mongodb') {
+    return '  id        String   @id @default(auto()) @map("_id") @db.ObjectId';
+  }
+  return '  id        Int      @id @default(autoincrement())';
+}
+
+function foreignKeyType(config: ProjectConfig): string {
+  return config.database === 'mongodb' ? 'String   @db.ObjectId' : 'Int';
+}
+
 function fieldToColumnType(type: string): string {
   const map: Record<string, string> = {
     string: 'String', number: 'Int', boolean: 'Boolean',
@@ -97,7 +108,7 @@ function renderModel(entity: EntityConfig, config: ProjectConfig): string {
     } else if (r.type === 'many-to-one') {
       // This side: single target + foreign key column
       const fkField = `${r.fieldName}Id`;
-      relationLines.push(`  ${fkField}  Int`);
+      relationLines.push(`  ${fkField}  ${foreignKeyType(config)}`);
       relationLines.push(`  ${r.fieldName}  ${targetPascal} @relation(fields: [${fkField}], references: [id])`);
     } else if (r.type === 'many-to-many') {
       // Prisma handles implicit join table automatically when both sides declare []
@@ -108,7 +119,7 @@ function renderModel(entity: EntityConfig, config: ProjectConfig): string {
   const allFields = [...fieldLines, ...relationLines];
 
   return `model ${pascal} {
-  id        Int      @id @default(autoincrement())
+${idLine(config)}
 ${allFields.map((l) => l).join('\n')}
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
