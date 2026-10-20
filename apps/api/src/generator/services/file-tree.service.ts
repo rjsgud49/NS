@@ -16,7 +16,7 @@ import {
   renderModule,
 } from '../templates/crud.template';
 import { renderAuthModule } from '../templates/auth.template';
-import { renderPrismaSchema } from '../templates/prisma.template';
+import { renderPrismaClientFiles, renderPrismaSchema } from '../templates/prisma.template';
 import { renderTypeOrmConfig } from '../templates/typeorm.template';
 
 @Injectable()
@@ -48,6 +48,7 @@ export class FileTreeService {
     }
     if (config.orm === 'prisma') {
       files.push({ path: 'prisma/schema.prisma', content: renderPrismaSchema(config) });
+      files.push(...renderPrismaClientFiles());
     }
 
     // ── Auth module

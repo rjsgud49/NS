@@ -148,7 +148,7 @@ ${allProps}
 }
 
 function renderPrismaEntityStub(pascal: string): string {
-  return `import { ${pascal} as Prisma${pascal} } from '@prisma/client';\n\nexport class ${pascal} implements Prisma${pascal} {}\n`;
+  return `export type { ${pascal} } from '@prisma/client';\n`;
 }
 
 // ── DTOs ─────────────────────────────────────────────────────────────────────

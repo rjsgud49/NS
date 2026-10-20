@@ -1,4 +1,5 @@
 import { ProjectConfig, EntityConfig } from '@ns/shared';
+import { GeneratedFile } from '../types';
 
 function toPascal(str: string) {
   return str.charAt(0).toUpperCase() + str.slice(1);
@@ -32,6 +33,43 @@ datasource db {
 }
 
 ${models}
+`;
+}
+
+export function renderPrismaClientFiles(): GeneratedFile[] {
+  return [
+    { path: 'src/prisma/prisma.service.ts', content: renderPrismaService() },
+    { path: 'src/prisma/prisma.module.ts', content: renderPrismaModule() },
+  ];
+}
+
+function renderPrismaService(): string {
+  return `import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
+
+@Injectable()
+export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+  async onModuleInit() {
+    await this.$connect();
+  }
+
+  async onModuleDestroy() {
+    await this.$disconnect();
+  }
+}
+`;
+}
+
+function renderPrismaModule(): string {
+  return `import { Global, Module } from '@nestjs/common';
+import { PrismaService } from './prisma.service';
+
+@Global()
+@Module({
+  providers: [PrismaService],
+  exports: [PrismaService],
+})
+export class PrismaModule {}
 `;
 }
 
