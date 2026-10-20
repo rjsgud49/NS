@@ -9,12 +9,12 @@ export function renderAuthModule(config: ProjectConfig): GeneratedFile[] {
   files.push({ path: 'src/auth/auth.module.ts', content: authModule(config, hasRefresh) });
   files.push({ path: 'src/auth/auth.controller.ts', content: authController(config, hasRefresh) });
   files.push({ path: 'src/auth/auth.service.ts', content: authService(config, hasRefresh) });
-  files.push({ path: 'src/auth/strategies/jwt.strategy.ts', content: jwtStrategy() });
+  files.push({ path: 'src/auth/strategies/jwt.strategy.ts', content: jwtStrategy(hasRoles) });
   files.push({ path: 'src/auth/guards/jwt-auth.guard.ts', content: jwtGuard() });
   files.push({ path: 'src/auth/dto/login.dto.ts', content: loginDto(config) });
 
   if (hasRefresh) {
-    files.push({ path: 'src/auth/strategies/jwt-refresh.strategy.ts', content: jwtRefreshStrategy() });
+    files.push({ path: 'src/auth/strategies/jwt-refresh.strategy.ts', content: jwtRefreshStrategy(hasRoles) });
     files.push({ path: 'src/auth/guards/jwt-refresh.guard.ts', content: jwtRefreshGuard() });
     files.push({ path: 'src/auth/dto/refresh.dto.ts', content: refreshDto() });
   }
@@ -78,6 +78,9 @@ ${hasRefresh ? `
 }
 
 function authService(config: ProjectConfig, hasRefresh: boolean): string {
+  const hasRoles = config.auth === 'jwt-refresh-roles';
+  const roleField = hasRoles ? ', roles: [\'user\']' : '';
+  const refreshRoleField = hasRoles ? ', roles: user.roles' : '';
   return `import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
@@ -93,7 +96,7 @@ export class AuthService {
     // const valid = await bcrypt.compare(dto.password, user.password);
     // if (!valid) throw new UnauthorizedException();
 
-    const payload = { sub: 1, email: dto.email };
+    const payload = { sub: 1, email: dto.email${roleField} };
     const accessToken = this.jwtService.sign(payload);
 ${hasRefresh ? `
     const refreshToken = this.jwtService.sign(payload, {
@@ -105,7 +108,7 @@ ${hasRefresh ? `
   }
 ${hasRefresh ? `
   refreshToken(user: any) {
-    const payload = { sub: user.sub, email: user.email };
+    const payload = { sub: user.sub, email: user.email${refreshRoleField} };
     return { accessToken: this.jwtService.sign(payload) };
   }
 ` : ''}
@@ -116,7 +119,7 @@ ${hasRefresh ? `
 `;
 }
 
-function jwtStrategy(): string {
+function jwtStrategy(hasRoles: boolean): string {
   return `import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
@@ -131,9 +134,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  validate(payload: any) {
-    return { sub: payload.sub, email: payload.email };
-  }
+  ${validateMethod(hasRoles)}
 }
 `;
 }
@@ -147,7 +148,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {}
 `;
 }
 
-function jwtRefreshStrategy(): string {
+function jwtRefreshStrategy(hasRoles: boolean): string {
   return `import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
@@ -162,11 +163,20 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     });
   }
 
-  validate(payload: any) {
-    return { sub: payload.sub, email: payload.email };
-  }
+  ${validateMethod(hasRoles)}
 }
 `;
+}
+
+function validateMethod(hasRoles: boolean): string {
+  if (!hasRoles) {
+    return `validate(payload: { sub: number; email: string }) {
+    return { sub: payload.sub, email: payload.email };
+  }`;
+  }
+  return `validate(payload: { sub: number; email: string; roles?: string[] }) {
+    return { sub: payload.sub, email: payload.email, roles: payload.roles ?? [] };
+  }`;
 }
 
 function jwtRefreshGuard(): string {
