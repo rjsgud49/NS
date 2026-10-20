@@ -1,5 +1,6 @@
 import { ProjectConfig } from '@ns/shared';
 import { GeneratedFile } from '../types';
+import { tsSingleQuoted } from './escape';
 
 export function renderConfigFiles(config: ProjectConfig): GeneratedFile[] {
   const files: GeneratedFile[] = [];
@@ -16,7 +17,7 @@ function renderConfiguration(config: ProjectConfig): string {
     port: parseInt(process.env.DB_PORT || '${config.database === 'mysql' ? '3306' : '5432'}', 10),
     username: process.env.DB_USER || 'user',
     password: process.env.DB_PASSWORD || 'password',
-    name: process.env.DB_NAME || '${config.name}',
+    name: process.env.DB_NAME || ${tsSingleQuoted(config.name)},
   },`
     : `\n  databaseUrl: process.env.DATABASE_URL,`;
 
@@ -47,7 +48,7 @@ function renderEnvValidation(config: ProjectConfig): string {
     lines.push(`  DB_PORT: Joi.number().default(${config.database === 'mysql' ? 3306 : 5432}),`);
     lines.push(`  DB_USER: Joi.string().default('user'),`);
     lines.push(`  DB_PASSWORD: Joi.string().default('password'),`);
-    lines.push(`  DB_NAME: Joi.string().default('${config.name}'),`);
+    lines.push(`  DB_NAME: Joi.string().default(${tsSingleQuoted(config.name)}),`);
   }
 
   if (config.auth !== 'none') {
