@@ -23,7 +23,7 @@ export function renderEnv(config: ProjectConfig, options: EnvRenderOptions = {})
 
   if (config.orm === 'typeorm' || config.orm === 'prisma') {
     lines.push(envLine('DATABASE_URL', databaseUrl(config)));
-    if (config.orm === 'typeorm' && config.database !== 'sqlite') {
+    if (config.orm === 'typeorm' && usesDiscreteDbFields(config.database)) {
       lines.push(envLine('DB_HOST', 'localhost'));
       lines.push(envLine('DB_PORT', config.database === 'mysql' ? '3306' : '5432'));
       lines.push(envLine('DB_USER', 'user'));
@@ -43,6 +43,10 @@ export function renderEnv(config: ProjectConfig, options: EnvRenderOptions = {})
   }
 
   return lines.join('\n') + '\n';
+}
+
+function usesDiscreteDbFields(database: string): boolean {
+  return database !== 'sqlite' && database !== 'mongodb';
 }
 
 function databaseUrl(config: ProjectConfig): string {

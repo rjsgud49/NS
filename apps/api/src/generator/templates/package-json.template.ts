@@ -24,6 +24,7 @@ export function renderPackageJson(config: ProjectConfig): string {
     deps['mysql2'] = config.database === 'mysql' ? '^3.9.7' : undefined;
     deps['pg'] = config.database === 'postgres' ? '^8.12.0' : undefined;
     deps['better-sqlite3'] = config.database === 'sqlite' ? '^9.6.0' : undefined;
+    deps['mongodb'] = config.database === 'mongodb' ? '^6.8.0' : undefined;
     devDeps['@types/better-sqlite3'] = config.database === 'sqlite' ? '^7.6.11' : undefined;
     Object.keys(deps).forEach((k) => deps[k] === undefined && delete deps[k]);
   }
