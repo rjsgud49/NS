@@ -1,4 +1,5 @@
 import { ProjectConfig } from '@ns/shared';
+import { tsSingleQuoted } from './escape';
 
 export function renderMain(config: ProjectConfig): string {
   const lines: string[] = [];
@@ -34,8 +35,8 @@ export function renderMain(config: ProjectConfig): string {
   if (config.features.swagger) {
     lines.push('');
     lines.push('  const swaggerConfig = new DocumentBuilder()');
-    lines.push(`    .setTitle('${config.name} API')`);
-    lines.push(`    .setDescription('${config.description || config.name + ' API documentation'}')`);
+    lines.push(`    .setTitle(${tsSingleQuoted(`${config.name} API`)})`);
+    lines.push(`    .setDescription(${tsSingleQuoted(config.description || `${config.name} API documentation`)})`);
     lines.push(`    .setVersion('1.0')`);
     if (config.auth !== 'none') {
       lines.push(`    .addBearerAuth()`);

@@ -1,4 +1,5 @@
 import { ProjectConfig } from '@ns/shared';
+import { tsSingleQuoted } from './escape';
 
 export function renderTypeOrmConfig(config: ProjectConfig): string {
   const dbTypeMap: Record<string, string> = {
@@ -32,5 +33,5 @@ function connectionFields(config: ProjectConfig): string {
     port: parseInt(process.env.DB_PORT ?? '${port}', 10),
     username: process.env.DB_USER ?? 'user',
     password: process.env.DB_PASSWORD ?? 'password',
-    database: process.env.DB_NAME ?? '${config.name}',`;
+    database: process.env.DB_NAME ?? ${tsSingleQuoted(config.name)},`;
 }
