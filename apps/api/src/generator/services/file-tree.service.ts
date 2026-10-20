@@ -4,7 +4,7 @@ import { GeneratedFile } from '../types';
 import { renderPackageJson } from '../templates/package-json.template';
 import { renderAppModule } from '../templates/app-module.template';
 import { renderMain } from '../templates/main.template';
-import { renderEnv } from '../templates/env.template';
+import { createEnvSecrets, renderEnv } from '../templates/env.template';
 import { renderConfigFiles } from '../templates/config.template';
 import { renderCommonFiles } from '../templates/common.template';
 import {
@@ -28,8 +28,9 @@ export class FileTreeService {
     files.push({ path: 'package.json', content: renderPackageJson(config) });
     files.push({ path: 'tsconfig.json', content: renderTsConfig() });
     files.push({ path: 'nest-cli.json', content: renderNestCli() });
-    files.push({ path: '.env', content: renderEnv(config) });
-    files.push({ path: '.env.example', content: renderEnv(config) });
+    const secrets = createEnvSecrets();
+    files.push({ path: '.env', content: renderEnv(config, { secrets }) });
+    files.push({ path: '.env.example', content: renderEnv(config, { example: true }) });
     files.push({ path: '.gitignore', content: renderGitignore() });
 
     // ── Core source files
