@@ -39,7 +39,9 @@ pnpm test
 pnpm build
 ```
 
-`pnpm test`는 공유 패키지를 빌드한 다음 API와 웹의 단위 테스트를 실행합니다. `pnpm build`는 워크스페이스 패키지를 의존 순서대로 빌드합니다.
+`pnpm test`는 공유 패키지를 빌드한 다음 API와 웹의 단위 테스트를 실행합니다. `pnpm build`는 워크스페이스 패키지를 의존 순서대로 빌드합니다. `main`에 푸시하거나 pull request를 열면 GitHub Actions가 같은 두 명령을 실행합니다.
+
+`pnpm lint`는 각 패키지에 `lint` 스크립트가 있을 때만 실행합니다. 지금은 패키지별 린트 스크립트가 없습니다.
 
 ## 생성 API
 
