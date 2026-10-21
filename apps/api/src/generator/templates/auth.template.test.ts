@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { renderAuthModule } from './auth.template';
+import { renderController } from './crud.template';
 import { syntaxErrors } from '../testing/syntax';
-import { sampleConfig } from '../testing/fixtures';
+import { sampleConfig, sampleEntity } from '../testing/fixtures';
 
 function content(auth: 'jwt' | 'jwt-refresh-roles', path: string) {
   const file = renderAuthModule(sampleConfig({ auth })).find((entry) => entry.path === path);
@@ -21,6 +22,19 @@ describe('role-aware auth generation', () => {
     assert.match(service, /roles: user\.roles/);
     assert.match(access, /roles: payload\.roles \?\? \[\]/);
     assert.match(refresh, /roles: payload\.roles \?\? \[\]/);
+  });
+
+  it('runs RolesGuard after JwtAuthGuard on CRUD controllers', () => {
+    const entity = sampleEntity();
+    const controller = renderController(entity, sampleConfig({ auth: 'jwt-refresh-roles', entities: [entity] }));
+
+    assert.match(controller, /import \{ RolesGuard \} from '\.\.\/auth\/guards\/roles\.guard';/);
+    assert.match(controller, /@UseGuards\(JwtAuthGuard, RolesGuard\)/);
+    assert.equal(syntaxErrors(controller).length, 0, syntaxErrors(controller).join('\n'));
+
+    const plain = renderController(entity, sampleConfig({ auth: 'jwt', entities: [entity] }));
+    assert.match(plain, /@UseGuards\(JwtAuthGuard\)\n/);
+    assert.doesNotMatch(plain, /RolesGuard/);
   });
 
   it('leaves plain JWT users without a roles claim', () => {

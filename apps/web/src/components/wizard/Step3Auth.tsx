@@ -51,9 +51,15 @@ export function Step3Auth({ config, update }: Props) {
                 <li>src/auth/guards/roles.guard.ts</li>
                 <li>src/auth/decorators/roles.decorator.ts</li>
                 <li>src/auth/enums/role.enum.ts</li>
+                <li>CRUD 컨트롤러의 RolesGuard</li>
               </>
             )}
           </ul>
+          {config.auth === 'jwt-refresh-roles' && (
+            <p className="text-[10px] text-gray-500 mt-2 leading-relaxed">
+              CRUD 라우트는 JwtAuthGuard 다음에 RolesGuard를 탑니다. @Roles가 없으면 인증만 요구합니다.
+            </p>
+          )}
         </div>
       )}
     </div>
