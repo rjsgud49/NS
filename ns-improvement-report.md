@@ -6,7 +6,7 @@
 
 ## 반영한 변경
 
-모두 `main`에 머지했다. 코드를 바꾸는 PR 중 열어 둔 것은 없다. `pnpm test`와 `pnpm build`를 로컬에서 통과시킨 뒤 머지했고, 각 PR의 GitHub Actions `verify`도 통과했다.
+모두 `main`에 머지했다. 코드를 바꾸는 PR 중 열어 둔 것은 없다. 이 문서는 https://github.com/rjsgud49/NS/pull/20 에 있다. `pnpm test`와 `pnpm build`를 로컬에서 통과시킨 뒤 머지했고, 각 PR의 GitHub Actions `verify`도 통과했다.
 
 | PR | 상태 | 내용 |
 | --- | --- | --- |
