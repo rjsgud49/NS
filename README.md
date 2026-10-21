@@ -59,6 +59,7 @@ pnpm build
 ## 알아둘 제한
 
 - 인증 로그인은 사용자 저장소를 조회하지 않는 예시입니다. `jwt-refresh-roles`에서는 예시 토큰에 `user` 역할을 넣어 `RolesGuard`와 맞춥니다. 운영 전에 실제 사용자 조회로 바꿔야 합니다.
+- MongoDB 문서 식별자는 문자열입니다. 컨트롤러는 `ParseIntPipe`로 자르지 않고, TypeORM은 `ObjectIdColumn`을 사용합니다.
 - 필드 옵션 `isArray`는 설정에만 있고 생성 코드에는 반영되지 않습니다.
 - Rate Limit을 켜면 전역 `ThrottlerGuard`로 60초당 100회를 적용합니다.
 - `.env.example`의 JWT 값은 자리표시자입니다. 실제 시크릿은 `.env`에만 있습니다.
