@@ -18,21 +18,23 @@ function renderExceptionFilter(): string {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 
-@Catch(HttpException)
+@Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
 
-  catch(exception: HttpException, host: ArgumentsHost) {
+  catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
-    const status = exception.getStatus();
-    const exceptionResponse = exception.getResponse();
+    const httpException = exception instanceof HttpException ? exception : null;
+    const status = httpException?.getStatus() ?? HttpStatus.INTERNAL_SERVER_ERROR;
+    const exceptionResponse = httpException?.getResponse();
 
     const message =
       typeof exceptionResponse === 'string'
         ? exceptionResponse
-        : (exceptionResponse as any).message ?? exception.message;
+        : (exceptionResponse as any)?.message
+          ?? (exception instanceof Error ? exception.message : 'Internal server error');
 
     this.logger.error(
       \`\${request.method} \${request.url} → \${status}: \${JSON.stringify(message)}\`,
