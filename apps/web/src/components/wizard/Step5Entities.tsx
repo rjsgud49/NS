@@ -260,6 +260,9 @@ export function Step5Entities({ config, update }: Props) {
                   {/* ── Relations ── */}
                   <div className="border-t border-gray-800 pt-3 space-y-2">
                     <p className="text-xs font-medium text-gray-400">관계 설정</p>
+                    <p className="text-[10px] text-gray-600 leading-relaxed">
+                      Prisma는 반대편 필드를 자동으로 만듭니다. TypeORM에서 1:N만 있으면 대상에 N:1을 만들고, N:1만 있으면 반대편 배열은 만들지 않습니다.
+                    </p>
 
                     {relations.length > 0 && (
                       <div className="space-y-1.5">
