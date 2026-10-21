@@ -303,10 +303,13 @@ export function renderController(entity: EntityConfig, config: ProjectConfig): s
     : '';
   const apiTagsDecorator = config.features.swagger ? `@ApiTags('${kebab}')\n` : '';
   const bearerDecorator = config.auth !== 'none' && config.features.swagger ? `@ApiBearerAuth()\n` : '';
-  const authGuardImport = config.auth !== 'none'
-    ? `import { UseGuards } from '@nestjs/common';\nimport { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';\n`
-    : '';
-  const useGuards = config.auth !== 'none' ? `@UseGuards(JwtAuthGuard)\n` : '';
+  const useRoles = config.auth === 'jwt-refresh-roles';
+  const authGuardImport = config.auth === 'none'
+    ? ''
+    : `import { UseGuards } from '@nestjs/common';\nimport { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';\n${useRoles ? "import { RolesGuard } from '../auth/guards/roles.guard';\n" : ''}`;
+  const useGuards = config.auth === 'none'
+    ? ''
+    : `@UseGuards(JwtAuthGuard${useRoles ? ', RolesGuard' : ''})\n`;
   const objectId = config.database === 'mongodb';
   const idParam = objectId ? `@Param('id') id: string` : `@Param('id', ParseIntPipe) id: number`;
 
