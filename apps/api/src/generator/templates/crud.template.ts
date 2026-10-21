@@ -1,4 +1,5 @@
 import { EntityConfig, FieldConfig, ProjectConfig, RelationConfig } from '@ns/shared';
+import { ResolvedRelation, resolveRelations } from './relations';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 function toPascal(str: string) {
@@ -49,9 +50,9 @@ function prismaInclude(relations: RelationConfig[]): string {
 // ── entity ───────────────────────────────────────────────────────────────────
 export function renderEntity(entity: EntityConfig, config: ProjectConfig): string {
   const pascal = toPascal(entity.name);
-  const relations = entity.relations ?? [];
 
   if (config.orm === 'typeorm') {
+    const relations = resolveRelations(config.entities, 'typeorm').get(entity.name) ?? [];
     return renderTypeOrmEntity(pascal, entity, relations);
   }
   return renderPrismaEntityStub(pascal);
@@ -60,7 +61,7 @@ export function renderEntity(entity: EntityConfig, config: ProjectConfig): strin
 function renderTypeOrmEntity(
   pascal: string,
   entity: EntityConfig,
-  relations: RelationConfig[],
+  relations: ResolvedRelation[],
 ): string {
   // Collect which relation decorators are needed
   const relDecorators = new Set<string>();
@@ -76,13 +77,14 @@ function renderTypeOrmEntity(
     ...Array.from(relDecorators),
   ];
 
-  // Import statements for related entities
-  const relatedImports = relations.map((r) => {
-    const targetPascal = toPascal(r.target);
-    const targetKebab = toKebab(r.target);
-    const currentKebab = toKebab(entity.name);
-    return `import { ${targetPascal} } from '../../${targetKebab}/entities/${targetKebab}.entity';`;
-  });
+  // Import statements for related entities. A self-relation stays in this file.
+  const relatedImports = relations
+    .filter((relation) => relation.target !== entity.name)
+    .map((relation) => {
+      const targetPascal = toPascal(relation.target);
+      const targetKebab = toKebab(relation.target);
+      return `import { ${targetPascal} } from '../../${targetKebab}/entities/${targetKebab}.entity';`;
+    });
 
   // Column definitions
   const columns = entity.fields.map((f) => {
@@ -94,32 +96,36 @@ function renderTypeOrmEntity(
     ].join('\n');
   }).join('\n\n');
 
-  // Relation definitions
-  const relationProps = relations.map((r) => {
-    const targetPascal = toPascal(r.target);
-    const targetCamel = toCamel(r.target);
+  // Relation definitions. Inverse callbacks name a property that exists on the other class.
+  const relationProps = relations.map((relation) => {
+    const targetPascal = toPascal(relation.target);
+    const targetCamel = toCamel(relation.target);
 
-    if (r.type === 'one-to-many') {
-      // Assume inverse property on target is camelCase(thisEntity)
-      const inverseProp = toCamel(entity.name);
+    if (relation.type === 'one-to-many') {
+      if (!relation.inverseField) return '';
       return [
-        `  @OneToMany(() => ${targetPascal}, (${targetCamel}) => ${targetCamel}.${inverseProp})`,
-        `  ${r.fieldName}: ${targetPascal}[];`,
+        `  @OneToMany(() => ${targetPascal}, (${targetCamel}) => ${targetCamel}.${relation.inverseField})`,
+        `  ${relation.fieldName}: ${targetPascal}[];`,
       ].join('\n');
     }
-    if (r.type === 'many-to-one') {
-      const inverseProp = toCamel(entity.name) + 's';
+    if (relation.type === 'many-to-one') {
+      const decorator = relation.inverseField
+        ? `@ManyToOne(() => ${targetPascal}, (${targetCamel}) => ${targetCamel}.${relation.inverseField}, { onDelete: 'CASCADE' })`
+        : `@ManyToOne(() => ${targetPascal}, { onDelete: 'CASCADE' })`;
+      const join = relation.fkName && relation.fkName !== `${relation.fieldName}Id`
+        ? `@JoinColumn({ name: '${relation.fkName}' })`
+        : '@JoinColumn()';
       return [
-        `  @ManyToOne(() => ${targetPascal}, (${targetCamel}) => ${targetCamel}.${inverseProp}, { onDelete: 'CASCADE' })`,
-        `  @JoinColumn()`,
-        `  ${r.fieldName}: ${targetPascal};`,
+        `  ${decorator}`,
+        `  ${join}`,
+        `  ${relation.fieldName}: ${targetPascal};`,
       ].join('\n');
     }
-    if (r.type === 'many-to-many') {
+    if (relation.type === 'many-to-many') {
       return [
         `  @ManyToMany(() => ${targetPascal})`,
         `  @JoinTable()`,
-        `  ${r.fieldName}: ${targetPascal}[];`,
+        `  ${relation.fieldName}: ${targetPascal}[];`,
       ].join('\n');
     }
     return '';

@@ -1,11 +1,9 @@
 import { ProjectConfig, EntityConfig } from '@ns/shared';
 import { GeneratedFile } from '../types';
+import { ResolvedRelation, resolveRelations } from './relations';
 
 function toPascal(str: string) {
   return str.charAt(0).toUpperCase() + str.slice(1);
-}
-function toCamel(str: string) {
-  return str.charAt(0).toLowerCase() + str.slice(1);
 }
 
 function idLine(config: ProjectConfig): string {
@@ -32,7 +30,10 @@ export function renderPrismaSchema(config: ProjectConfig): string {
     mysql: 'mysql', postgres: 'postgresql', sqlite: 'sqlite', mongodb: 'mongodb',
   };
 
-  const models = config.entities.map((entity) => renderModel(entity, config)).join('\n\n');
+  const resolved = resolveRelations(config.entities, 'prisma');
+  const models = config.entities
+    .map((entity) => renderModel(entity, config, resolved.get(entity.name) ?? []))
+    .join('\n\n');
 
   return `generator client {
   provider = "prisma-client-js"
@@ -84,9 +85,8 @@ export class PrismaModule {}
 `;
 }
 
-function renderModel(entity: EntityConfig, config: ProjectConfig): string {
+function renderModel(entity: EntityConfig, config: ProjectConfig, relations: ResolvedRelation[]): string {
   const pascal = toPascal(entity.name);
-  const relations = entity.relations ?? [];
 
   // Regular fields
   const fieldLines = entity.fields.map((f) => {
@@ -96,24 +96,24 @@ function renderModel(entity: EntityConfig, config: ProjectConfig): string {
     return `  ${f.name}  ${type}${optional}${unique}`;
   });
 
-  // Relation fields + foreign keys
+  // Relation fields + foreign keys. Every relation names its opposite field.
   const relationLines: string[] = [];
-  relations.forEach((r) => {
-    const targetPascal = toPascal(r.target);
-    const targetCamel = toCamel(r.target);
+  relations.forEach((relation) => {
+    const targetPascal = toPascal(relation.target);
+    if (!relation.relationName) return;
 
-    if (r.type === 'one-to-many') {
-      // This side: array of targets
-      relationLines.push(`  ${r.fieldName}  ${targetPascal}[]`);
-    } else if (r.type === 'many-to-one') {
-      // This side: single target + foreign key column
-      const fkField = `${r.fieldName}Id`;
+    if (relation.type === 'many-to-one') {
+      const fkField = relation.fkName ?? `${relation.fieldName}Id`;
       relationLines.push(`  ${fkField}  ${foreignKeyType(config)}`);
-      relationLines.push(`  ${r.fieldName}  ${targetPascal} @relation(fields: [${fkField}], references: [id])`);
-    } else if (r.type === 'many-to-many') {
-      // Prisma handles implicit join table automatically when both sides declare []
-      relationLines.push(`  ${r.fieldName}  ${targetPascal}[]`);
+      relationLines.push(
+        `  ${relation.fieldName}  ${targetPascal} @relation("${relation.relationName}", fields: [${fkField}], references: [id])`,
+      );
+      return;
     }
+
+    relationLines.push(
+      `  ${relation.fieldName}  ${targetPascal}[] @relation("${relation.relationName}")`,
+    );
   });
 
   const allFields = [...fieldLines, ...relationLines];
