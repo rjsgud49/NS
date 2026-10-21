@@ -53,7 +53,7 @@ export function renderEntity(entity: EntityConfig, config: ProjectConfig): strin
 
   if (config.orm === 'typeorm') {
     const relations = resolveRelations(config.entities, 'typeorm').get(entity.name) ?? [];
-    return renderTypeOrmEntity(pascal, entity, relations);
+    return renderTypeOrmEntity(pascal, entity, relations, config);
   }
   return renderPrismaEntityStub(pascal);
 }
@@ -62,7 +62,9 @@ function renderTypeOrmEntity(
   pascal: string,
   entity: EntityConfig,
   relations: ResolvedRelation[],
+  config: ProjectConfig,
 ): string {
+  const mongo = config.database === 'mongodb';
   // Collect which relation decorators are needed
   const relDecorators = new Set<string>();
   relations.forEach((r) => {
@@ -72,7 +74,9 @@ function renderTypeOrmEntity(
   });
 
   const typeOrmImports = [
-    'Entity', 'PrimaryGeneratedColumn', 'Column',
+    'Entity',
+    ...(mongo ? ['ObjectId', 'ObjectIdColumn'] : ['PrimaryGeneratedColumn']),
+    'Column',
     'CreateDateColumn', 'UpdateDateColumn',
     ...Array.from(relDecorators),
   ];
@@ -86,12 +90,14 @@ function renderTypeOrmEntity(
       return `import { ${targetPascal} } from '../../${targetKebab}/entities/${targetKebab}.entity';`;
     });
 
-  // Column definitions
+  // Column definitions. MongoDB documents do not use SQL column types.
   const columns = entity.fields.map((f) => {
-    const nullable = f.isOptional ? ', nullable: true' : '';
-    const unique = f.isUnique ? ', unique: true' : '';
+    const nullable = f.isOptional ? 'nullable: true' : '';
+    const unique = f.isUnique ? 'unique: true' : '';
+    const options = [!mongo ? `type: '${fieldToColumnType(f.type)}'` : '', unique, nullable].filter(Boolean);
+    const decorator = options.length ? `@Column({ ${options.join(', ')} })` : '@Column()';
     return [
-      `  @Column({ type: '${fieldToColumnType(f.type)}'${unique}${nullable} })`,
+      `  ${decorator}`,
       `  ${f.name}${f.isOptional ? '?' : ''}: ${fieldToTsType(f.type)};`,
     ].join('\n');
   }).join('\n\n');
@@ -139,8 +145,7 @@ ${uniqueRelatedImports.length ? '\n' + uniqueRelatedImports.join('\n') : ''}
 
 @Entity()
 export class ${pascal} {
-  @PrimaryGeneratedColumn()
-  id: number;
+  ${mongo ? `@ObjectIdColumn()\n  id: ObjectId;` : `@PrimaryGeneratedColumn()\n  id: number;`}
 
 ${allProps}
 
@@ -198,10 +203,14 @@ export function renderService(entity: EntityConfig, config: ProjectConfig): stri
 
   if (config.orm === 'typeorm') {
     const relationsOption = typeOrmFindRelations(relations);
+    const mongo = config.database === 'mongodb';
+    const idType = mongo ? 'string' : 'number';
+    const whereId = mongo ? '{ _id: this.objectId(id) } as any' : '{ id }';
+    const criteria = mongo ? 'this.objectId(id)' : 'id';
 
-    return `import { Injectable, NotFoundException } from '@nestjs/common';
+    return `import { Injectable, ${mongo ? 'BadRequestException, ' : ''}NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ${mongo ? 'ObjectId, ' : ''}Repository } from 'typeorm';
 import { ${pascal} } from './entities/${kebab}.entity';
 import { Create${pascal}Dto } from './dto/create-${kebab}.dto';
 import { Update${pascal}Dto } from './dto/update-${kebab}.dto';
@@ -212,7 +221,12 @@ export class ${pascal}Service {
     @InjectRepository(${pascal})
     private readonly repo: Repository<${pascal}>,
   ) {}
-
+${mongo ? `
+  private objectId(id: string): ObjectId {
+    if (!ObjectId.isValid(id)) throw new BadRequestException('Invalid id');
+    return new ObjectId(id);
+  }
+` : ''}
   create(dto: Create${pascal}Dto) {
     return this.repo.save(this.repo.create(dto));
   }
@@ -221,27 +235,28 @@ export class ${pascal}Service {
     return this.repo.find(${relationsOption ? `{ ${relationsOption} }` : ''});
   }
 
-  async findOne(id: number) {
-    const item = await this.repo.findOne({ where: { id }${relationsOption ? `, ${relationsOption}` : ''} });
+  async findOne(id: ${idType}) {
+    const item = await this.repo.findOne({ where: ${whereId}${relationsOption ? `, ${relationsOption}` : ''} });
     if (!item) throw new NotFoundException(\`${pascal} #\${id} not found\`);
     return item;
   }
 
-  async update(id: number, dto: Update${pascal}Dto) {
+  async update(id: ${idType}, dto: Update${pascal}Dto) {
     await this.findOne(id);
-    await this.repo.update(id, dto as any);
+    await this.repo.update(${criteria}, dto as any);
     return this.findOne(id);
   }
 
-  async remove(id: number) {
+  async remove(id: ${idType}) {
     await this.findOne(id);
-    return this.repo.delete(id);
+    return this.repo.delete(${criteria});
   }
 }
 `;
   }
 
   const relationsInclude = prismaInclude(relations);
+  const idType = config.database === 'mongodb' ? 'string' : 'number';
 
   return `import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -260,17 +275,17 @@ export class ${pascal}Service {
     return this.prisma.${camel}.findMany(${relationsInclude ? `{ ${relationsInclude} }` : ''});
   }
 
-  async findOne(id: number) {
+  async findOne(id: ${idType}) {
     const item = await this.prisma.${camel}.findUnique({ where: { id }${relationsInclude ? `, ${relationsInclude}` : ''} });
     if (!item) throw new NotFoundException(\`${pascal} #\${id} not found\`);
     return item;
   }
 
-  update(id: number, dto: Update${pascal}Dto) {
+  update(id: ${idType}, dto: Update${pascal}Dto) {
     return this.prisma.${camel}.update({ where: { id }, data: dto });
   }
 
-  remove(id: number) {
+  remove(id: ${idType}) {
     return this.prisma.${camel}.delete({ where: { id } });
   }
 }
@@ -292,8 +307,10 @@ export function renderController(entity: EntityConfig, config: ProjectConfig): s
     ? `import { UseGuards } from '@nestjs/common';\nimport { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';\n`
     : '';
   const useGuards = config.auth !== 'none' ? `@UseGuards(JwtAuthGuard)\n` : '';
+  const objectId = config.database === 'mongodb';
+  const idParam = objectId ? `@Param('id') id: string` : `@Param('id', ParseIntPipe) id: number`;
 
-  return `import { Controller, Get, Post, Body, Patch, Param, Delete, ParseIntPipe } from '@nestjs/common';
+  return `import { Controller, Get, Post, Body, Patch, Param, Delete${objectId ? '' : ', ParseIntPipe'} } from '@nestjs/common';
 ${swaggerDecorators}${authGuardImport}import { ${pascal}Service } from './${kebab}.service';
 import { Create${pascal}Dto } from './dto/create-${kebab}.dto';
 import { Update${pascal}Dto } from './dto/update-${kebab}.dto';
@@ -313,17 +330,17 @@ export class ${pascal}Controller {
   }
 
   @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
+  findOne(${idParam}) {
     return this.${camel}Service.findOne(id);
   }
 
   @Patch(':id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() dto: Update${pascal}Dto) {
+  update(${idParam}, @Body() dto: Update${pascal}Dto) {
     return this.${camel}Service.update(id, dto);
   }
 
   @Delete(':id')
-  remove(@Param('id', ParseIntPipe) id: number) {
+  remove(${idParam}) {
     return this.${camel}Service.remove(id);
   }
 }
